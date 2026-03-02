@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>RealityScan</Name>
+  <Repository>martynyuu/realityscan:latest</Repository>
+  <Registry>https://hub.docker.com/r/martynyuu/realityscan</Registry>
+  <Branch>
+    <Tag>latest</Tag>
+    <TagDescription>Latest stable release</TagDescription>
+  </Branch>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Martynyuu/unraid-realityscan/issues</Support>
+  <Project>https://github.com/Martynyuu/unraid-realityscan</Project>
+  <Overview>
+RealityScan 3D Photogrammetry Processing for Unraid.
+
+Process your 3D scans from the RealityScan mobile app with full GPU acceleration.
+
+REQUIREMENTS:
+- NVIDIA GPU with CUDA support
+- NVIDIA Driver plugin installed
+- Vulkan Support plugin installed
+- RealityScan Linux installer (.deb) from Epic Games
+
+FIRST RUN:
+Mount your RealityScan .deb installer and the container will install it automatically.
+  </Overview>
+  <Category>Productivity: MediaApp:Photos</Category>
+  <WebUI></WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/Martynyuu/unraid-realityscan/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Martynyuu/unraid-realityscan/main/icon.png</Icon>
+  <DonateText>Support Development</DonateText>
+  <DonateLink>https://ko-fi.com/strudel9</DonateLink>
+  <DonateImg>https://img.shields.io/badge/Ko--fi-Support-ff5e5b</DonateImg>
+  <ExtraParams>--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all</ExtraParams>
+  <DateInstalled></DateInstalled>
+  <Description>RealityScan 3D Photogrammetry Processing with GPU acceleration. Process scans from the RealityScan mobile app.</Description>
+  <Changes>
+### 2026.03.02
+- Initial release
+- Full NVIDIA GPU support
+- Vulkan integration
+- Automatic installer detection
+  </Changes>
+  <Config Name="Scans Directory" Target="/data/scans" Default="/mnt/user/scans" Mode="rw" Description="Directory for processed 3D scans" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/scans</Config>
+  <Config Name="RealityScan Installer" Target="/tmp/realityscan.deb" Default="" Mode="ro" Description="Path to RealityScan .deb installer (first run only)" Type="Path" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Config Directory" Target="/home/realityscan/.config" Default="/mnt/user/appdata/realityscan" Mode="rw" Description="Application configuration" Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/realityscan</Config>
+  <Config Name="Vulkan ICD" Target="/etc/vulkan/icd.d" Default="/etc/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host" Type="Path" Display="advanced" Required="true" Mask="false">/etc/vulkan/icd.d</Config>
+  <Config Name="DISPLAY" Target="DISPLAY" Default=":0" Mode="" Description="X11 display for GUI" Type="Variable" Display="advanced" Required="false" Mask="false">:0</Config>
+</Container>
