@@ -16,7 +16,7 @@ if [ ! -f /opt/realityscan/bin/realityscan ]; then
     if [ -f /tmp/realityscan.deb ]; then
         echo "Found installer at /tmp/realityscan.deb"
         echo "Installing RealityScan..."
-        sudo dpkg -i /tmp/realityscan.deb || sudo apt-get install -f -y
+        dpkg -i /tmp/realityscan.deb || apt-get install -f -y
         echo "Installation complete!"
     else
         echo "Waiting for manual installation..."
