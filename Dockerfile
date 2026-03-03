@@ -1,56 +1,47 @@
 FROM ubuntu:22.04
 
 LABEL maintainer="Martynyuu"
-LABEL description="RealityScan Linux for 3D Photogrammetry Processing (Headless)"
+LABEL description="RealityScan Headless Server - REST/gRPC API"
 LABEL org.opencontainers.image.source="https://github.com/Martynyuu/unraid-realityscan"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=all
 
-# Virtual display settings
+# Headless display
 ENV DISPLAY=:99
 ENV XDG_RUNTIME_DIR=/tmp/runtime-root
 
-# RealityScan settings
+# API settings
 ENV RS_REST_PORT=8080
-ENV RS_HEADLESS=true
+ENV RS_GRPC_PORT=50051
 
-# Install dependencies
+# Install minimal dependencies for headless operation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Basic tools
-    curl wget ca-certificates gnupg \
-    # Virtual display for headless
-    xvfb x11-utils \
-    # X11 and display libs
-    x11-apps libx11-xcb1 libxcb-shm0 libxcb-dri3-0 \
-    libxcomposite1 libxcursor1 libxdamage1 libxfixes3 \
-    libxi6 libxrandr2 libxrender1 libxtst6 \
-    # GTK and desktop integration
-    libgtk-3-0 libdbus-glib-1-2 libxt6 \
-    # Vulkan support
-    libvulkan1 vulkan-tools mesa-vulkan-drivers \
-    # Audio (stub)
-    libasound2 libpulse0 \
-    # Fonts
-    fonts-liberation fonts-dejavu-core \
-    # Misc libs
-    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-    libdrm2 libgbm1 libpango-1.0-0 libcairo2 \
+    curl wget ca-certificates \
+    # Virtual framebuffer (required by Wine/RealityScan)
+    xvfb \
+    # Minimal X libs (required by RealityScan binaries)
+    libx11-6 libxcb1 libxext6 libxrender1 \
+    # Vulkan
+    libvulkan1 \
+    # GTK minimal (required)
+    libgtk-3-0 libglib2.0-0 \
+    # Other required libs
+    libnss3 libasound2 libdrm2 libgbm1 \
+    libatk1.0-0 libatk-bridge2.0-0 libcups2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directories
-RUN mkdir -p /opt/realityscan \
-    && mkdir -p /data/scans \
-    && mkdir -p /tmp/runtime-root \
+RUN mkdir -p /opt/realityscan /data/scans /tmp/runtime-root \
     && chmod 700 /tmp/runtime-root
 
-# Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose REST API port
-EXPOSE 8080
+# REST and gRPC ports
+EXPOSE 8080 50051
 
 WORKDIR /data/scans
 

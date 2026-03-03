@@ -6,109 +6,49 @@ export XDG_RUNTIME_DIR=/tmp/runtime-root
 mkdir -p $XDG_RUNTIME_DIR
 chmod 700 $XDG_RUNTIME_DIR
 
-# Start virtual display if not running
+# Start virtual framebuffer (required by RealityScan)
 if ! pgrep -x "Xvfb" > /dev/null; then
-    echo "Starting virtual display on :99..."
-    Xvfb :99 -screen 0 1920x1080x24 &
-    sleep 2
+    Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
+    sleep 1
 fi
-
 export DISPLAY=:99
 
-# Check for RealityScan installation
 RS_BIN="/opt/realityscan/bin/realityscan"
 
+# Auto-install if .deb is mounted
+if [ ! -f "$RS_BIN" ] && [ -f /tmp/realityscan.deb ]; then
+    echo "Installing RealityScan..."
+    dpkg -i /tmp/realityscan.deb || apt-get install -f -y
+fi
+
+# Check installation
 if [ ! -f "$RS_BIN" ]; then
-    echo "=============================================="
-    echo " RealityScan not installed!"
-    echo "=============================================="
-    
-    if [ -f /tmp/realityscan.deb ]; then
-        echo "Found installer, installing..."
-        dpkg -i /tmp/realityscan.deb || apt-get install -f -y
-        echo "Installation complete!"
-    else
-        echo ""
-        echo " Please mount the .deb installer:"
-        echo "   -v /path/to/realityscan.deb:/tmp/realityscan.deb"
-        echo ""
-        echo " Or run interactively:"
-        echo "   docker run -it --entrypoint /bin/bash ..."
-        echo "=============================================="
-        
-        if [ "$1" = "bash" ] || [ "$1" = "sh" ]; then
-            exec /bin/bash
-        fi
-        exit 1
-    fi
+    echo "ERROR: RealityScan not installed"
+    echo "Mount installer: -v /path/to/realityscan.deb:/tmp/realityscan.deb"
+    exit 1
 fi
 
-# Check Vulkan
-echo "Checking Vulkan..."
-if vulkaninfo --summary 2>/dev/null | grep -q "deviceName"; then
-    GPU=$(vulkaninfo --summary 2>/dev/null | grep "deviceName" | head -1 | cut -d= -f2 | xargs)
-    echo "GPU: $GPU"
-else
-    echo "WARNING: No Vulkan GPU detected!"
-fi
-
-# Handle commands
 case "$1" in
     server|rest)
-        # Start RealityScan with REST API server
         PORT=${RS_REST_PORT:-8080}
-        echo ""
-        echo "=============================================="
-        echo " Starting RealityScan REST Server"
-        echo " Port: $PORT"
-        echo " Headless: true"
-        echo "=============================================="
-        echo ""
-        echo "API Endpoints:"
-        echo "  POST /api/align    - Align photos"
-        echo "  POST /api/process  - Process model"
-        echo "  POST /api/export   - Export model"
-        echo "  GET  /api/status   - Get status"
-        echo ""
+        echo "Starting REST server on port $PORT"
         exec $RS_BIN -headless -silent -restServer $PORT
         ;;
-    
     grpc)
-        # Start with gRPC server
         PORT=${RS_GRPC_PORT:-50051}
-        echo "Starting RealityScan gRPC Server on port $PORT..."
+        echo "Starting gRPC server on port $PORT"
         exec $RS_BIN -headless -silent -grpcServer $PORT
         ;;
-    
-    process)
-        # One-shot processing
-        shift
-        echo "Processing: $@"
-        exec $RS_BIN -headless -silent "$@"
+    both)
+        REST=${RS_REST_PORT:-8080}
+        GRPC=${RS_GRPC_PORT:-50051}
+        echo "Starting REST ($REST) + gRPC ($GRPC)"
+        exec $RS_BIN -headless -silent -restServer $REST -grpcServer $GRPC
         ;;
-    
-    align)
-        shift
-        exec $RS_BIN -headless -silent -align "$@"
-        ;;
-    
-    export)
-        shift
-        exec $RS_BIN -headless -silent -export "$@"
-        ;;
-    
-    gui)
-        # Start with GUI (requires X11 forwarding)
-        echo "Starting RealityScan GUI..."
-        exec $RS_BIN
-        ;;
-    
     bash|sh)
         exec /bin/bash
         ;;
-    
     *)
-        # Pass through to RealityScan
         exec $RS_BIN -headless -silent "$@"
         ;;
 esac

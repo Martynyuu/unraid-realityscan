@@ -1,158 +1,129 @@
-# RealityScan Docker for Unraid
+# RealityScan Headless Server for Unraid
 
-[![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://hub.docker.com/)
+[![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://hub.docker.com/r/martynyuu/realityscan)
 [![Unraid](https://img.shields.io/badge/Unraid-6.10%2B-orange)](https://unraid.net/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Run Epic Games' **RealityScan** 3D photogrammetry software on Unraid with full GPU acceleration.
+Headless **RealityScan** server with REST and gRPC APIs for automated 3D photogrammetry processing.
 
 ## Features
 
+- 🖥️ **Fully Headless** - No GUI, no X11 forwarding needed
+- 🌐 **REST API** - HTTP endpoints on port 8080
+- ⚡ **gRPC API** - High-performance RPC on port 50051
 - 🎮 **GPU Accelerated** - Full NVIDIA CUDA/Vulkan support
-- 🐳 **Docker Container** - Isolated, reproducible environment  
-- 📦 **Unraid Ready** - Community Apps template included
-- 🖥️ **X11 Forwarding** - GUI via VNC or X11
+- 🐳 **Docker Native** - Lightweight, production-ready
 
 ## Requirements
 
-- Unraid 6.10.0 or later
-- NVIDIA GPU with CUDA support
+- Unraid 6.10+ with Docker
+- NVIDIA GPU
 - [NVIDIA Driver Plugin](https://forums.unraid.net/topic/98978-plugin-nvidia-driver/)
 - [Vulkan Support Plugin](https://github.com/Martynyuu/unraid-vulkan)
-- RealityScan Linux installer (.deb) from [Epic Games](https://dev.epicgames.com/documentation/en-us/realityscan)
+- RealityScan Linux .deb from [Epic Games](https://dev.epicgames.com/)
 
 ## Quick Start
 
-### 1. Download RealityScan
-
-Get the Linux .deb installer from Epic Games Developer Portal.
-
-### 2. Run Headless REST Server
+### 1. Start REST Server
 
 ```bash
 docker run -d --gpus all \
   -p 8080:8080 \
-  -e NVIDIA_DRIVER_CAPABILITIES=all \
   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
   -v /mnt/user/scans:/data/scans \
-  -v /path/to/realityscan.deb:/tmp/realityscan.deb \
+  -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
   --name realityscan \
-  martynyuu/realityscan:latest server
+  martynyuu/realityscan:latest
 ```
 
-### 3. Send Commands via REST API
+### 2. Use the API
 
 ```bash
-# Check status
+# Status
 curl http://localhost:8080/api/status
 
-# Align photos
+# Align
 curl -X POST http://localhost:8080/api/align \
+  -H "Content-Type: application/json" \
   -d '{"project":"/data/scans/my_project"}'
 
-# Process model
+# Process
 curl -X POST http://localhost:8080/api/process
 
 # Export
 curl -X POST http://localhost:8080/api/export \
-  -d '{"format":"obj","path":"/data/scans/output.obj"}'
+  -d '{"format":"obj"}'
 ```
 
-## Unraid Installation
+## Run Modes
 
-### Via Community Applications
+| Command | Description |
+|---------|-------------|
+| `server` / `rest` | REST API on port 8080 (default) |
+| `grpc` | gRPC API on port 50051 |
+| `both` | REST + gRPC simultaneously |
+| `bash` | Interactive shell |
+| `<any>` | Pass-through to RealityScan CLI |
 
-1. Open **Apps** tab
-2. Search for "RealityScan"
-3. Click **Install**
-4. Configure paths and click **Apply**
+### Examples
 
-### Manual Docker Setup
+```bash
+# REST only (default)
+docker run -d --gpus all -p 8080:8080 ... martynyuu/realityscan:latest
 
-Add a new container in Unraid with these settings:
+# gRPC only
+docker run -d --gpus all -p 50051:50051 ... martynyuu/realityscan:latest grpc
 
-| Setting | Value |
-|---------|-------|
-| Repository | `martynyuu/realityscan:latest` |
-| Network Type | `bridge` |
-| Extra Parameters | `--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all` |
-| /data/scans | `/mnt/user/scans` |
-| /tmp/realityscan.deb | Path to your .deb installer |
+# Both APIs
+docker run -d --gpus all -p 8080:8080 -p 50051:50051 ... martynyuu/realityscan:latest both
+
+# Direct CLI command
+docker run --rm --gpus all ... martynyuu/realityscan:latest -align /data/scans/project
+```
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DISPLAY` | X11 display for GUI | `:0` |
-| `NVIDIA_VISIBLE_DEVICES` | GPU selection | `all` |
-| `NVIDIA_DRIVER_CAPABILITIES` | Driver features | `all` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RS_REST_PORT` | `8080` | REST API port |
+| `RS_GRPC_PORT` | `50051` | gRPC API port |
 
-## Volume Mounts
+## Volumes
 
-| Container Path | Description |
-|----------------|-------------|
-| `/data/scans` | Output directory for processed scans |
-| `/tmp/realityscan.deb` | RealityScan installer (first run) |
-| `/home/realityscan/.config` | App configuration persistence |
+| Path | Description |
+|------|-------------|
+| `/data/scans` | Working directory for projects |
+| `/tmp/realityscan.deb` | Installer (first run only) |
+| `/etc/vulkan/icd.d` | Vulkan ICD config (read-only) |
 
-## GPU Verification
+## API Reference
 
-Inside the container:
+### REST Endpoints
 
-```bash
-# Check NVIDIA driver
-nvidia-smi
-
-# Check Vulkan
-vulkaninfo --summary
-
-# Check CUDA
-/opt/realityscan/bin/wine CudaDeviceQuery.exe
+```
+GET  /api/status              - Server status
+POST /api/align               - Align photos
+POST /api/process             - Generate model
+POST /api/export              - Export model
+POST /api/abort               - Abort current task
+GET  /api/progress            - Task progress
 ```
 
-## Troubleshooting
+### gRPC
 
-### Black rectangles in dialogs
-Press Enter to dismiss - this is a known Wine rendering issue.
+See [Epic Games gRPC documentation](https://dev.epicgames.com/documentation/en-us/realityscan/remote-command-plugin)
 
-### "Cannot create Vulkan instance"
-Ensure Vulkan plugin is installed and ICD is mounted:
-```bash
--v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro
+## Unraid Template
+
+Add this repository to your Docker template URLs:
 ```
-
-### Epic Games login issues
-The container may need a browser. Install one:
-```bash
-apt-get install firefox
+https://github.com/Martynyuu/unraid-realityscan
 ```
-
-### No GPU detected
-Check that NVIDIA Container Toolkit is installed on Unraid:
-```bash
-nvidia-container-cli info
-```
-
-## Building Locally
-
-```bash
-git clone https://github.com/Martynyuu/unraid-realityscan.git
-cd unraid-realityscan
-docker build -t realityscan:latest .
-```
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Credits
-
-- [Epic Games RealityScan](https://www.unrealengine.com/en-US/realityscan)
-- [CodeWeavers Wine](https://www.codeweavers.com/)
-- Unraid community
 
 ## Support
 
 - [GitHub Issues](https://github.com/Martynyuu/unraid-realityscan/issues)
-- [Unraid Forums](https://forums.unraid.net/)
 - [Donations](https://ko-fi.com/strudel9)
+
+## License
+
+MIT
