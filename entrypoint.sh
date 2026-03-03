@@ -17,8 +17,10 @@ RS_BIN="/opt/realityscan/bin/realityscan"
 
 # Auto-install if .deb is mounted
 if [ ! -f "$RS_BIN" ] && [ -f /tmp/realityscan.deb ]; then
-    echo "Installing RealityScan..."
+    echo "Installing RealityScan and dependencies..."
+    apt-get update
     dpkg -i /tmp/realityscan.deb || apt-get install -f -y
+    rm -rf /var/lib/apt/lists/*
 fi
 
 # Check installation
