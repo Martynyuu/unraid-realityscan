@@ -1,50 +1,114 @@
 #!/bin/bash
 set -e
 
+# Setup environment
+export XDG_RUNTIME_DIR=/tmp/runtime-root
+mkdir -p $XDG_RUNTIME_DIR
+chmod 700 $XDG_RUNTIME_DIR
+
+# Start virtual display if not running
+if ! pgrep -x "Xvfb" > /dev/null; then
+    echo "Starting virtual display on :99..."
+    Xvfb :99 -screen 0 1920x1080x24 &
+    sleep 2
+fi
+
+export DISPLAY=:99
+
 # Check for RealityScan installation
-if [ ! -f /opt/realityscan/bin/realityscan ]; then
+RS_BIN="/opt/realityscan/bin/realityscan"
+
+if [ ! -f "$RS_BIN" ]; then
     echo "=============================================="
     echo " RealityScan not installed!"
-    echo ""
-    echo " Please mount the .deb installer:"
-    echo "   -v /path/to/realityscan.deb:/tmp/realityscan.deb"
-    echo ""
-    echo " Then run: dpkg -i /tmp/realityscan.deb"
     echo "=============================================="
     
-    # Check if installer is mounted
     if [ -f /tmp/realityscan.deb ]; then
-        echo "Found installer at /tmp/realityscan.deb"
-        echo "Installing RealityScan..."
+        echo "Found installer, installing..."
         dpkg -i /tmp/realityscan.deb || apt-get install -f -y
         echo "Installation complete!"
     else
-        echo "Waiting for manual installation..."
-        exec /bin/bash
+        echo ""
+        echo " Please mount the .deb installer:"
+        echo "   -v /path/to/realityscan.deb:/tmp/realityscan.deb"
+        echo ""
+        echo " Or run interactively:"
+        echo "   docker run -it --entrypoint /bin/bash ..."
+        echo "=============================================="
+        
+        if [ "$1" = "bash" ] || [ "$1" = "sh" ]; then
+            exec /bin/bash
+        fi
+        exit 1
     fi
 fi
 
-# Check Vulkan availability
+# Check Vulkan
 echo "Checking Vulkan..."
-if command -v vulkaninfo &> /dev/null; then
-    GPU_NAME=$(vulkaninfo --summary 2>/dev/null | grep "deviceName" | head -1 | cut -d= -f2 | xargs)
-    if [ -n "$GPU_NAME" ]; then
-        echo "GPU detected: $GPU_NAME"
-    else
-        echo "WARNING: No Vulkan GPU detected!"
-    fi
+if vulkaninfo --summary 2>/dev/null | grep -q "deviceName"; then
+    GPU=$(vulkaninfo --summary 2>/dev/null | grep "deviceName" | head -1 | cut -d= -f2 | xargs)
+    echo "GPU: $GPU"
+else
+    echo "WARNING: No Vulkan GPU detected!"
 fi
 
 # Handle commands
 case "$1" in
-    realityscan)
-        echo "Starting RealityScan..."
-        exec /opt/realityscan/bin/realityscan "${@:2}"
+    server|rest)
+        # Start RealityScan with REST API server
+        PORT=${RS_REST_PORT:-8080}
+        echo ""
+        echo "=============================================="
+        echo " Starting RealityScan REST Server"
+        echo " Port: $PORT"
+        echo " Headless: true"
+        echo "=============================================="
+        echo ""
+        echo "API Endpoints:"
+        echo "  POST /api/align    - Align photos"
+        echo "  POST /api/process  - Process model"
+        echo "  POST /api/export   - Export model"
+        echo "  GET  /api/status   - Get status"
+        echo ""
+        exec $RS_BIN -headless -silent -restServer $PORT
         ;;
+    
+    grpc)
+        # Start with gRPC server
+        PORT=${RS_GRPC_PORT:-50051}
+        echo "Starting RealityScan gRPC Server on port $PORT..."
+        exec $RS_BIN -headless -silent -grpcServer $PORT
+        ;;
+    
+    process)
+        # One-shot processing
+        shift
+        echo "Processing: $@"
+        exec $RS_BIN -headless -silent "$@"
+        ;;
+    
+    align)
+        shift
+        exec $RS_BIN -headless -silent -align "$@"
+        ;;
+    
+    export)
+        shift
+        exec $RS_BIN -headless -silent -export "$@"
+        ;;
+    
+    gui)
+        # Start with GUI (requires X11 forwarding)
+        echo "Starting RealityScan GUI..."
+        exec $RS_BIN
+        ;;
+    
     bash|sh)
         exec /bin/bash
         ;;
+    
     *)
-        exec "$@"
+        # Pass through to RealityScan
+        exec $RS_BIN -headless -silent "$@"
         ;;
 esac

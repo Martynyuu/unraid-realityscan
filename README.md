@@ -23,28 +23,39 @@ Run Epic Games' **RealityScan** 3D photogrammetry software on Unraid with full G
 
 ## Quick Start
 
-### 1. Build the container
-
-```bash
-docker build -t realityscan:latest .
-```
-
-### 2. Download RealityScan
+### 1. Download RealityScan
 
 Get the Linux .deb installer from Epic Games Developer Portal.
 
-### 3. Run with GPU support
+### 2. Run Headless REST Server
 
 ```bash
-docker run -it --gpus all \
-  -e DISPLAY=$DISPLAY \
+docker run -d --gpus all \
+  -p 8080:8080 \
   -e NVIDIA_DRIVER_CAPABILITIES=all \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
   -v /mnt/user/scans:/data/scans \
   -v /path/to/realityscan.deb:/tmp/realityscan.deb \
-  --device /dev/dri \
-  realityscan:latest
+  --name realityscan \
+  martynyuu/realityscan:latest server
+```
+
+### 3. Send Commands via REST API
+
+```bash
+# Check status
+curl http://localhost:8080/api/status
+
+# Align photos
+curl -X POST http://localhost:8080/api/align \
+  -d '{"project":"/data/scans/my_project"}'
+
+# Process model
+curl -X POST http://localhost:8080/api/process
+
+# Export
+curl -X POST http://localhost:8080/api/export \
+  -d '{"format":"obj","path":"/data/scans/output.obj"}'
 ```
 
 ## Unraid Installation
