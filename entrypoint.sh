@@ -23,7 +23,7 @@ Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
 sleep 1
 
 RS_BIN="/opt/realityscan/bin/realityscan"
-RS_PLUGIN="/opt/realityscan/support/realityscan/drive_c/Program Files/Epic Games/RealityScan/Plugins/RealityScan.RemoteCommandPlugin/RealityScan.RemoteCommandPlugin.rsplugin"
+WINE="/opt/realityscan/bin/wine"
 
 # Auto-install if .deb is mounted
 if [ ! -f "$RS_BIN" ] && [ -f /tmp/realityscan.deb ]; then
@@ -40,14 +40,43 @@ if [ ! -f "$RS_BIN" ]; then
     exit 1
 fi
 
-# Check plugin
-if [ ! -f "$RS_PLUGIN" ]; then
-    echo "WARNING: RemoteCommandPlugin not found at $RS_PLUGIN"
+# Find the RemoteCommandPlugin (multiple possible locations)
+RS_PLUGIN=""
+for plugin_path in \
+    "/opt/realityscan/support/realityscan/drive_c/Program Files/Epic Games/RealityScan/Plugins/RealityScan.RemoteCommandPlugin/RealityScan.RemoteCommandPlugin.rsplugin" \
+    "/opt/realityscan/support/realityscan/drive_c/Program\ Files/Epic\ Games/RealityScan/Plugins/RealityScan.RemoteCommandPlugin/RealityScan.RemoteCommandPlugin.rsplugin" \
+    "/opt/realityscan/bin/Plugins/RealityScan.RemoteCommandPlugin/RealityScan.RemoteCommandPlugin.rsplugin"
+do
+    if [ -f "$plugin_path" ]; then
+        RS_PLUGIN="$plugin_path"
+        echo "Found plugin: $RS_PLUGIN"
+        break
+    fi
+done
+
+if [ -z "$RS_PLUGIN" ]; then
+    echo "WARNING: RemoteCommandPlugin not found"
+    echo "Searching for .rsplugin files..."
+    find /opt/realityscan -name "*.rsplugin" 2>/dev/null || true
     echo "REST/gRPC APIs may not work without the plugin"
 fi
 
 # Generate unique instance name
 INSTANCE_NAME="rs_$$"
+
+# Wine prefix setup
+export WINEPREFIX=/tmp/wine-realityscan
+export WINEDEBUG="-all"
+
+# Helper function to run RealityScan with Wine
+run_rs() {
+    if [ -f "$WINE" ] && [ "$RS_BIN" = "/opt/realityscan/bin/realityscan" ]; then
+        # RealityScan on Linux uses Wine
+        "$WINE" "$RS_BIN" "$@"
+    else
+        "$RS_BIN" "$@"
+    fi
+}
 
 case "$1" in
     server|rest)
@@ -56,11 +85,15 @@ case "$1" in
         echo "Instance name: $INSTANCE_NAME"
         
         # Start RealityScan instance with plugin registered
-        $RS_BIN -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
-        sleep 10
+        if [ -n "$RS_PLUGIN" ]; then
+            run_rs -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
+        else
+            run_rs -setInstanceName "$INSTANCE_NAME" -headless -silent &
+        fi
+        sleep 15
         
         # Delegate to instance and start REST server
-        exec $RS_BIN -delegateTo "$INSTANCE_NAME" -RsRemoteStartREST "http://0.0.0.0:$PORT"
+        exec run_rs -delegateTo "$INSTANCE_NAME" -RsRemoteStartREST "http://0.0.0.0:$PORT"
         ;;
     grpc)
         PORT=${RS_GRPC_PORT:-50051}
@@ -68,11 +101,15 @@ case "$1" in
         echo "Instance name: $INSTANCE_NAME"
         
         # Start RealityScan instance with plugin registered
-        $RS_BIN -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
-        sleep 10
+        if [ -n "$RS_PLUGIN" ]; then
+            run_rs -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
+        else
+            run_rs -setInstanceName "$INSTANCE_NAME" -headless -silent &
+        fi
+        sleep 15
         
         # Delegate to instance and start gRPC server
-        exec $RS_BIN -delegateTo "$INSTANCE_NAME" -RsRemoteStartGRPC "0.0.0.0:$PORT"
+        exec run_rs -delegateTo "$INSTANCE_NAME" -RsRemoteStartGRPC "0.0.0.0:$PORT"
         ;;
     both)
         REST=${RS_REST_PORT:-8080}
@@ -81,20 +118,24 @@ case "$1" in
         echo "Instance name: $INSTANCE_NAME"
         
         # Start RealityScan instance with plugin registered
-        $RS_BIN -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
-        sleep 10
+        if [ -n "$RS_PLUGIN" ]; then
+            run_rs -setInstanceName "$INSTANCE_NAME" -registerPlugin "$RS_PLUGIN" -headless -silent &
+        else
+            run_rs -setInstanceName "$INSTANCE_NAME" -headless -silent &
+        fi
+        sleep 15
         
         # Start REST server in background
-        $RS_BIN -delegateTo "$INSTANCE_NAME" -RsRemoteStartREST "http://0.0.0.0:$REST" &
+        run_rs -delegateTo "$INSTANCE_NAME" -RsRemoteStartREST "http://0.0.0.0:$REST" &
         sleep 2
         
         # Start gRPC server as main process
-        exec $RS_BIN -delegateTo "$INSTANCE_NAME" -RsRemoteStartGRPC "0.0.0.0:$GRPC"
+        exec run_rs -delegateTo "$INSTANCE_NAME" -RsRemoteStartGRPC "0.0.0.0:$GRPC"
         ;;
     bash|sh)
         exec /bin/bash
         ;;
     *)
-        exec $RS_BIN -headless -silent "$@"
+        exec run_rs -headless -silent "$@"
         ;;
 esac
