@@ -38,7 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create directories
 RUN mkdir -p /opt/realityscan /data/scans /tmp/runtime-root \
     && chmod 700 /tmp/runtime-root
-
+RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y \
+    wine wine64 wine32
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
