@@ -7,11 +7,20 @@ mkdir -p $XDG_RUNTIME_DIR
 chmod 700 $XDG_RUNTIME_DIR
 
 # Start virtual framebuffer (required by RealityScan)
-if ! pgrep -x "Xvfb" > /dev/null; then
-    Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
+export DISPLAY=:99
+
+# Kill any existing Xvfb on display 99 or remove stale lock
+if pgrep -x "Xvfb" > /dev/null; then
+    echo "Killing existing Xvfb process..."
+    pkill -x Xvfb || true
     sleep 1
 fi
-export DISPLAY=:99
+
+# Remove stale lock file if exists
+rm -f /tmp/.X99-lock
+
+Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
+sleep 1
 
 RS_BIN="/opt/realityscan/bin/realityscan"
 
