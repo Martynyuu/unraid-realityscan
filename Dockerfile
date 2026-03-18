@@ -23,14 +23,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Virtual framebuffer (required by Wine/RealityScan)
     xvfb \
     # Minimal X libs (required by RealityScan binaries)
-    libx11-6 libxcb1 libxext6 libxrender1 \
-    # Vulkan
-    libvulkan1 \
+    libx11-6 libxcb1 libxext6 libxrender1 libgl1-mesa-glx \
+    # Vulkan runtime
+    libvulkan1 vulkan-tools \
     # GTK minimal (required)
     libgtk-3-0 libglib2.0-0 \
     # Other required libs
-    libnss3 libasound2 libdrm2 libgbm1 \
-    libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+    libnss3 libasound2 libdrm2 libgbm1 libgl1 libglapi-mesa \
+    libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 \
+    # Wine dependencies (RealityScan uses Wine on Linux)
+    winbind libfontconfig1 libsensors5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directories

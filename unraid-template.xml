@@ -32,10 +32,15 @@ Mount your RealityScan .deb installer and the container will install it automati
   <DonateText>Support Development</DonateText>
   <DonateLink>https://ko-fi.com/strudel9</DonateLink>
   <DonateImg>https://img.shields.io/badge/Ko--fi-Support-ff5e5b</DonateImg>
-  <ExtraParams>--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all</ExtraParams>
+  <ExtraParams>--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all --device /dev/dri</ExtraParams>
   <DateInstalled></DateInstalled>
   <Description>RealityScan 3D Photogrammetry Processing with GPU acceleration. Process scans from the RealityScan mobile app.</Description>
   <Changes>
+### 2026.03.18
+- Added NVIDIA library mounts for proper GPU/Vulkan support
+- Added /dev/dri device access
+- Fixed headless Xvfb initialization
+
 ### 2026.03.02
 - Initial release
 - Full NVIDIA GPU support
@@ -45,6 +50,10 @@ Mount your RealityScan .deb installer and the container will install it automati
   <Config Name="Scans Directory" Target="/data/scans" Default="/mnt/user/scans" Mode="rw" Description="Directory for processed 3D scans" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/scans</Config>
   <Config Name="RealityScan Installer" Target="/tmp/realityscan.deb" Default="" Mode="ro" Description="Path to RealityScan .deb installer (first run only)" Type="Path" Display="always" Required="false" Mask="false"></Config>
   <Config Name="Config Directory" Target="/home/realityscan/.config" Default="/mnt/user/appdata/realityscan" Mode="rw" Description="Application configuration" Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/realityscan</Config>
-  <Config Name="Vulkan ICD" Target="/etc/vulkan/icd.d" Default="/etc/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host" Type="Path" Display="advanced" Required="true" Mask="false">/etc/vulkan/icd.d</Config>
-  <Config Name="DISPLAY" Target="DISPLAY" Default=":0" Mode="" Description="X11 display for GUI" Type="Variable" Display="advanced" Required="false" Mask="false">:0</Config>
+  <Config Name="Vulkan ICD (etc)" Target="/etc/vulkan/icd.d" Default="/etc/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host (etc)" Type="Path" Display="advanced" Required="true" Mask="false">/etc/vulkan/icd.d</Config>
+  <Config Name="Vulkan ICD (share)" Target="/usr/share/vulkan/icd.d" Default="/usr/share/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host (usr/share)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/share/vulkan/icd.d</Config>
+  <Config Name="NVIDIA GLX Library" Target="/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" Default="/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" Mode="ro" Description="NVIDIA GLX library (required for GPU)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0</Config>
+  <Config Name="NVIDIA EGL Library" Target="/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0" Default="/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0" Mode="ro" Description="NVIDIA EGL library (required for GPU)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0</Config>
+  <Config Name="DISPLAY" Target="DISPLAY" Default=":99" Mode="" Description="X11 display (internal Xvfb on :99)" Type="Variable" Display="advanced" Required="false" Mask="false">:99</Config>
+  <Config Name="Command" Target="" Default="server" Mode="" Description="Run mode: server, grpc, both, bash" Type="Variable" Display="advanced" Required="false" Mask="false">server</Config>
 </Container>

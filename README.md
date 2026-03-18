@@ -23,16 +23,28 @@ Headless **RealityScan** server with REST and gRPC APIs for automated 3D photogr
 
 ## Quick Start
 
-### 1. Start REST Server
+### 1. Start REST Server (with GPU passthrough)
+
+**⚠️ CRITICAL:** RealityScan requires NVIDIA library mappings for Vulkan/CUDA to work in Docker.
 
 ```bash
+# First, find your NVIDIA lib paths:
+ls /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so*
+ls /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so*
+
+# Then run with required mounts:
 docker run -d --gpus all \
   -p 8080:8080 \
   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
+  -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro \
+  -v /dev/dri:/dev/dri \
   -v /mnt/user/scans:/data/scans \
   -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
+  -v /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:ro \
+  -v /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:ro \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
   --name realityscan \
-  martynyuu/realityscan:latest
+  martynyuu/realityscan:latest server
 ```
 
 ### 2. Use the API
