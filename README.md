@@ -23,79 +23,56 @@
 
 ## Quick Start
 
-### 1. Start REST Server (with GPU passthrough)
-
-**⚠️ CRITICAL:** RealityScan requires NVIDIA library mappings for Vulkan/CUDA to work in Docker.
+### 1. Enable X11 Forwarding (Required for GUI)
 
 ```bash
-# First, find your NVIDIA lib paths:
-ls /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so*
-ls /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so*
+# Allow Docker to access X11 display
+xhost +local:docker
+```
 
-# Then run with required mounts:
-docker run -d --gpus all \
-  -p 8080:8080 \
+### 2. Start with GUI + X11 Forwarding
+
+**⚠️ IMPORTANT:** Read the Epic Games Docker documentation for proper setup: https://dev.epicgames.com/documentation/en-us/realityscan/docker-deployment
+
+```bash
+docker run -it --gpus all \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
   -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro \
   -v /dev/dri:/dev/dri \
   -v /mnt/user/scans:/data/scans \
-  -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
-  -v /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:ro \
-  -v /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:ro \
-  -e NVIDIA_DRIVER_CAPABILITIES=all \
-  --name realityscan \
+  martynyuu/realityscan:latest
+```
+
+### 3. REST API Mode (Headless)
+
+```bash
+docker run -d --gpus all \
+  -p 8080:8080 \
+  -v /mnt/user/scans:/data/scans \
   martynyuu/realityscan:latest server
 ```
 
-### 2. Use the API
+### 4. Both GUI + REST API
 
 ```bash
-# Status
-curl http://localhost:8080/api/status
-
-# Align
-curl -X POST http://localhost:8080/api/align \
-  -H "Content-Type: application/json" \
-  -d '{"project":"/data/scans/my_project"}'
-
-# Process
-curl -X POST http://localhost:8080/api/process
-
-# Export
-curl -X POST http://localhost:8080/api/export \
-  -d '{"format":"obj"}'
-```
-
-## Run Modes
-
-| Command | Description |
-|---------|-------------|
-| `server` / `rest` | REST API on port 8080 (default) |
-| `grpc` | gRPC API on port 50051 |
-| `both` | REST + gRPC simultaneously |
-| `bash` | Interactive shell |
-| `<any>` | Pass-through to RealityScan CLI |
-
-### Examples
-
-```bash
-# REST only (default)
-docker run -d --gpus all -p 8080:8080 ... martynyuu/realityscan:latest
-
-# gRPC only
-docker run -d --gpus all -p 50051:50051 ... martynyuu/realityscan:latest grpc
-
-# Both APIs
-docker run -d --gpus all -p 8080:8080 -p 50051:50051 ... martynyuu/realityscan:latest both
-
-# Direct CLI command
-docker run --rm --gpus all ... martynyuu/realityscan:latest -align /data/scans/project
+docker run -it --gpus all \
+  -p 8080:8080 \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
+  -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro \
+  -v /dev/dri:/dev/dri \
+  -v /mnt/user/scans:/data/scans \
+  martynyuu/realityscan:latest both
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DISPLAY` | *(required)* | Host X11 display (e.g., `:0`) |
 | `RS_REST_PORT` | `8080` | REST API port |
 | `RS_GRPC_PORT` | `50051` | gRPC API port |
 
@@ -103,9 +80,58 @@ docker run --rm --gpus all ... martynyuu/realityscan:latest -align /data/scans/p
 
 | Path | Description |
 |------|-------------|
+| `/tmp/.X11-unix` | X11 socket for GUI |
+| `/etc/vulkan/icd.d` | Vulkan ICD config |
+| `/usr/share/vulkan/icd.d` | Vulkan ICD config |
+| `/dev/dri` | DRM device for GPU |
 | `/data/scans` | Working directory for projects |
-| `/tmp/realityscan.deb` | Installer (first run only) |
-| `/etc/vulkan/icd.d` | Vulkan ICD config (read-only) |
+
+## Run Modes
+
+| Command | Description |
+|---------|-------------|
+| *(none)* | GUI mode (default) |
+| `gui` | GUI with X11 forwarding |
+| `server` / `rest` | REST API on port 8080 |
+| `grpc` | gRPC API on port 50051 |
+| `both` | GUI + REST + gRPC |
+| `bash` | Interactive shell |
+
+## Troubleshooting
+
+### Vulkan Errors
+
+```
+ERROR: loader_scanned_icd_add: Could not get 'vkCreateInstance'
+```
+
+**Solution:** Mount the correct Vulkan ICD:
+```bash
+-v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
+-v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro
+```
+
+### DISPLAY Not Set
+
+```
+'DISPLAY' environment variable not set... skipping surface info
+```
+
+**Solution:** Pass DISPLAY environment variable:
+```bash
+-e DISPLAY=$DISPLAY
+```
+
+### XDG_RUNTIME_DIR Error
+
+```
+error: XDG_RUNTIME_DIR is invalid or not set
+```
+
+**Solution:** Container sets this automatically. If problems persist, add:
+```bash
+-e XDG_RUNTIME_DIR=/tmp/runtime-root
+```
 
 ## API Reference
 
@@ -120,20 +146,10 @@ POST /api/abort               - Abort current task
 GET  /api/progress            - Task progress
 ```
 
-### gRPC
-
-See [Epic Games gRPC documentation](https://dev.epicgames.com/documentation/en-us/realityscan/remote-command-plugin)
-
-## Unraid Template
-
-Add this repository to your Docker template URLs:
-```
-https://github.com/Martynyuu/unraid-realityscan
-```
-
 ## Support
 
 - [GitHub Issues](https://github.com/Martynyuu/unraid-realityscan/issues)
+- [Epic Games Docs](https://dev.epicgames.com/documentation/en-us/realityscan/docker-deployment)
 - [Donations](https://ko-fi.com/strudel9)
 
 ## License
