@@ -42,4 +42,4 @@ EXPOSE 8080 50051
 WORKDIR /data/scans
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["server"]
+CMD ["gui"]
