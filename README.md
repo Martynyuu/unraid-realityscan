@@ -1,17 +1,17 @@
-# RealityScan for Unraid (X11 Forwarding)
+# RealityScan for Unraid (Headless with VNC)
 
 [![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://hub.docker.com/r/martynyuu/realityscan)
 [![Unraid](https://img.shields.io/badge/Unraid-6.10%2B-orange)](https://unraid.net/)
 
-**RealityScan** with X11 forwarding, REST and gRPC APIs for automated 3D photogrammetry processing.
+**RealityScan** headless server with VNC remote desktop, REST and gRPC APIs.
 
 ## Features
 
-- 🖥️ **X11 Forwarding** - GUI appears on host display
+- 🖥️ **VNC Remote Desktop** - Access GUI via browser (noVNC on port 6080)
 - 🌐 **REST API** - HTTP endpoints on port 8080
 - ⚡ **gRPC API** - High-performance RPC on port 50051
 - 🎮 **GPU Accelerated** - Full NVIDIA CUDA/Vulkan support
-- 🐳 **Docker Native** - Lightweight, production-ready
+- 🐳 **Docker Native** - Production-ready for Unraid
 
 ## Requirements
 
@@ -23,48 +23,47 @@
 
 ## Quick Start
 
-### 1. Enable X11 Forwarding (Required for GUI)
+### Start with Remote Desktop (default)
 
 ```bash
-# Allow Docker to access X11 display
-xhost +local:docker
-```
-
-### 2. Start with GUI + X11 Forwarding
-
-**⚠️ IMPORTANT:** Read the Epic Games Docker documentation for proper setup: https://dev.epicgames.com/documentation/en-us/realityscan/docker-deployment
-
-```bash
-docker run -it --gpus all \
-  -e DISPLAY=$DISPLAY \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
+docker run -d --gpus all \
+  -p 6080:6080 \
+  -p 5900:5900 \
   -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
   -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro \
   -v /dev/dri:/dev/dri \
   -v /mnt/user/scans:/data/scans \
+  -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
+  -v /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:ro \
+  -v /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:ro \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
+  --name realityscan \
   martynyuu/realityscan:latest
 ```
 
-### 3. REST API Mode (Headless)
+**Access Remote Desktop:**
+- Browser: `http://<unraid-ip>:6080`
+- VNC Client: `<unraid-ip>:5900`
+- **Password:** `clarity` (change with `-e VNC_PASSWORD`)
+
+### REST API Mode (Headless only)
 
 ```bash
 docker run -d --gpus all \
   -p 8080:8080 \
   -v /mnt/user/scans:/data/scans \
+  -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
   martynyuu/realityscan:latest server
 ```
 
-### 4. Both GUI + REST API
+### Both GUI + REST API
 
 ```bash
-docker run -it --gpus all \
+docker run -d --gpus all \
+  -p 6080:6080 \
   -p 8080:8080 \
-  -e DISPLAY=$DISPLAY \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  -v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
-  -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro \
-  -v /dev/dri:/dev/dri \
   -v /mnt/user/scans:/data/scans \
+  -v /mnt/user/realityscan.deb:/tmp/realityscan.deb \
   martynyuu/realityscan:latest both
 ```
 
@@ -72,7 +71,9 @@ docker run -it --gpus all \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DISPLAY` | *(required)* | Host X11 display (e.g., `:0`) |
+| `VNC_PORT` | `5900` | VNC server port |
+| `VNC_WEB_PORT` | `6080` | noVNC web port |
+| `VNC_PASSWORD` | `clarity` | VNC password |
 | `RS_REST_PORT` | `8080` | REST API port |
 | `RS_GRPC_PORT` | `50051` | gRPC API port |
 
@@ -80,58 +81,24 @@ docker run -it --gpus all \
 
 | Path | Description |
 |------|-------------|
-| `/tmp/.X11-unix` | X11 socket for GUI |
 | `/etc/vulkan/icd.d` | Vulkan ICD config |
 | `/usr/share/vulkan/icd.d` | Vulkan ICD config |
 | `/dev/dri` | DRM device for GPU |
-| `/data/scans` | Working directory for projects |
+| `/data/scans` | Working directory |
+| `/tmp/realityscan.deb` | Installer (first run only) |
+| `/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0` | NVIDIA lib (required) |
+| `/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0` | NVIDIA lib (required) |
 
 ## Run Modes
 
 | Command | Description |
 |---------|-------------|
-| *(none)* | GUI mode (default) |
-| `gui` | GUI with X11 forwarding |
-| `server` / `rest` | REST API on port 8080 |
-| `grpc` | gRPC API on port 50051 |
+| *(none)* | GUI with VNC (default) |
+| `gui` | GUI with VNC remote desktop |
+| `server` / `rest` | REST API only (no GUI) |
+| `grpc` | gRPC API only (no GUI) |
 | `both` | GUI + REST + gRPC |
 | `bash` | Interactive shell |
-
-## Troubleshooting
-
-### Vulkan Errors
-
-```
-ERROR: loader_scanned_icd_add: Could not get 'vkCreateInstance'
-```
-
-**Solution:** Mount the correct Vulkan ICD:
-```bash
--v /etc/vulkan/icd.d:/etc/vulkan/icd.d:ro \
--v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro
-```
-
-### DISPLAY Not Set
-
-```
-'DISPLAY' environment variable not set... skipping surface info
-```
-
-**Solution:** Pass DISPLAY environment variable:
-```bash
--e DISPLAY=$DISPLAY
-```
-
-### XDG_RUNTIME_DIR Error
-
-```
-error: XDG_RUNTIME_DIR is invalid or not set
-```
-
-**Solution:** Container sets this automatically. If problems persist, add:
-```bash
--e XDG_RUNTIME_DIR=/tmp/runtime-root
-```
 
 ## API Reference
 
@@ -145,6 +112,29 @@ POST /api/export              - Export model
 POST /api/abort               - Abort current task
 GET  /api/progress            - Task progress
 ```
+
+## Troubleshooting
+
+### Vulkan Errors
+
+```
+ERROR: loader_scanned_icd_add: Could not get 'vkCreateInstance'
+```
+
+**Solution:** Mount NVIDIA libraries:
+```bash
+-v /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0:ro \
+-v /usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0:ro
+```
+
+### VNC not accessible
+
+Check if ports are open:
+```bash
+docker port realityscan
+```
+
+Should show `6080/tcp` and `5900/tcp`.
 
 ## Support
 
