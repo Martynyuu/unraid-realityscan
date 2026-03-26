@@ -8,6 +8,7 @@ chmod 700 $XDG_RUNTIME_DIR
 
 # RealityScan binary path
 RS_BIN="/opt/realityscan/bin/realityscan"
+WINE="/opt/realityscan/bin/wine"
 
 # Auto-install if .deb is mounted
 if [ ! -f "$RS_BIN" ] && [ -f /tmp/realityscan.deb ]; then
@@ -24,28 +25,48 @@ if [ ! -f "$RS_BIN" ]; then
     exit 1
 fi
 
+# Wine prefix setup
+export WINEPREFIX=/tmp/wine-realityscan
+export WINEDEBUG="-all"
+
+# Helper function to run RealityScan with Wine
+run_rs() {
+    if [ -f "$WINE" ] && [ "$RS_BIN" = "/opt/realityscan/bin/realityscan" ]; then
+        # RealityScan on Linux uses Wine
+        "$WINE" "$RS_BIN" "$@"
+    else
+        "$RS_BIN" "$@"
+    fi
+}
+
 case "$1" in
     server|rest)
         PORT=${RS_REST_PORT:-8080}
         echo "Starting REST server on port $PORT"
-        exec $RS_BIN -headless -silent -restServer $PORT
+        exec run_rs -headless -silent -restServer $PORT
         ;;
     grpc)
         PORT=${RS_GRPC_PORT:-50051}
         echo "Starting gRPC server on port $PORT"
-        exec $RS_BIN -headless -silent -grpcServer $PORT
+        exec run_rs -headless -silent -grpcServer $PORT
         ;;
     both)
         REST=${RS_REST_PORT:-8080}
         GRPC=${RS_GRPC_PORT:-50051}
         echo "Starting REST ($REST) + gRPC ($GRPC)"
-        exec $RS_BIN -headless -silent -restServer $REST -grpcServer $GRPC
+        exec run_rs -headless -silent -restServer $REST -grpcServer $GRPC
+        ;;
+    gui)
+        echo "Starting RealityScan GUI with X11 forwarding..."
+        # Start GUI in foreground - container stays alive as long as GUI is running
+        exec run_rs
         ;;
     bash|sh)
         exec /bin/bash
         ;;
     *)
-        # Pass through to RealityScan CLI with X11 display
-        exec $RS_BIN "$@"
+        # Default: GUI mode
+        echo "Starting RealityScan GUI..."
+        exec run_rs
         ;;
 esac
