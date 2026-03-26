@@ -1,13 +1,13 @@
-# RealityScan Headless Server for Unraid
+# RealityScan for Unraid (X11 Forwarding)
 
 [![Docker](https://img.shields.io/badge/Docker-ready-blue)](https://hub.docker.com/r/martynyuu/realityscan)
 [![Unraid](https://img.shields.io/badge/Unraid-6.10%2B-orange)](https://unraid.net/)
 
-Headless **RealityScan** server with REST and gRPC APIs for automated 3D photogrammetry processing.
+**RealityScan** with X11 forwarding, REST and gRPC APIs for automated 3D photogrammetry processing.
 
 ## Features
 
-- 🖥️ **Fully Headless** - No GUI, no X11 forwarding needed
+- 🖥️ **X11 Forwarding** - GUI appears on host display
 - 🌐 **REST API** - HTTP endpoints on port 8080
 - ⚡ **gRPC API** - High-performance RPC on port 50051
 - 🎮 **GPU Accelerated** - Full NVIDIA CUDA/Vulkan support

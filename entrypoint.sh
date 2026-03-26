@@ -6,22 +6,7 @@ export XDG_RUNTIME_DIR=/tmp/runtime-root
 mkdir -p $XDG_RUNTIME_DIR
 chmod 700 $XDG_RUNTIME_DIR
 
-# Start virtual framebuffer (required by RealityScan)
-export DISPLAY=:99
-
-# Kill any existing Xvfb on display 99 or remove stale lock
-if pgrep -x "Xvfb" > /dev/null; then
-    echo "Killing existing Xvfb process..."
-    pkill -x Xvfb || true
-    sleep 1
-fi
-
-# Remove stale lock file if exists
-rm -f /tmp/.X99-lock
-
-Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
-sleep 1
-
+# RealityScan binary path
 RS_BIN="/opt/realityscan/bin/realityscan"
 
 # Auto-install if .deb is mounted
@@ -60,6 +45,7 @@ case "$1" in
         exec /bin/bash
         ;;
     *)
-        exec $RS_BIN -headless -silent "$@"
+        # Pass through to RealityScan CLI with X11 display
+        exec $RS_BIN "$@"
         ;;
 esac
