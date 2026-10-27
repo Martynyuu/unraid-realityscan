@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Prints the RSNode bearer token (for Studio / curl). RSNode hands it out on GET /node/connection,
+# which it answers to loopback callers only - so this has to run inside the container:
+#   docker exec <container> rsnode-token          -> the token
+#   docker exec <container> rsnode-token --json   -> the whole /node/connection answer
+set -euo pipefail
+port="${RSNODE_PORT:-30010}"
+scheme=http
+curl_opts=(-fsS --max-time "${RSNODE_TIMEOUT:-5}")
+case " ${RSNODE_ARGS:-} " in *" -tlsKey "*) scheme=https; curl_opts+=(-k) ;; esac
+json="$(curl "${curl_opts[@]}" "$scheme://127.0.0.1:$port/node/connection")"
+token="$(printf '%s' "$json" | sed -n 's/.*"authToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+[ -n "$token" ] || { echo "no authToken in /node/connection answer: $json" >&2; exit 1; }
+if [ "${1:-}" = "--json" ]; then printf '%s\n' "$json"; else printf '%s\n' "$token"; fi
