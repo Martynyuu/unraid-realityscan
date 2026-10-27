@@ -248,7 +248,9 @@ stopping=0
 on_term() {
   stopping=1
   log "stopping"
-  [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
+  if [ -n "$child" ]; then
+    kill -TERM "$child" 2>/dev/null || true
+  fi
 }
 trap on_term TERM INT
 
