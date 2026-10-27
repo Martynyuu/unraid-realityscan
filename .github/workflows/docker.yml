@@ -1,5 +1,6 @@
 name: Docker Build
 
+# The image contains only the runtime; RealityScan itself is never part of it (see .dockerignore).
 on:
   workflow_dispatch:
   push:
@@ -9,8 +10,11 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: martynyuu/realityscan
+  DOCKERHUB_IMAGE: docker.io/martynyuu/realityscan
+  # Optional second registry. Off until the repository variable PUBLISH_GHCR is set to "true"
+  # (Settings > Secrets and variables > Actions > Variables). Uses GITHUB_TOKEN, no extra secret.
+  # A new GHCR package starts private; make it public once in the package settings.
+  GHCR_IMAGE: ghcr.io/martynyuu/realityscan
 
 jobs:
   build:
@@ -21,31 +25,48 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Lint shell scripts
+        run: shellcheck entrypoint.sh healthcheck.sh rsnode-token install-unraid.sh
+
+      - name: Check Unraid template is well-formed
+        run: python3 -c 'import xml.dom.minidom as m; m.parse("unraid-template.xml")'
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request' && vars.PUBLISH_GHCR == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.DOCKERHUB_IMAGE }}
+            name=${{ env.GHCR_IMAGE }},enable=${{ vars.PUBLISH_GHCR == 'true' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}

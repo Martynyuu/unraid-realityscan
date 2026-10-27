@@ -1,0 +1,9 @@
+# RealityScan is never part of the image (Epic login, not redistributable).
+*.deb
+*.tar.gz
+.git
+.github
+*.md
+unraid-template.xml
+install-unraid.sh
+icon.png
