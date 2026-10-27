@@ -1,41 +1,40 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>RealityScan</Name>
+  <Name>LumaLod-RSNode</Name>
   <Repository>martynyuu/realityscan:latest</Repository>
   <Registry>https://hub.docker.com/r/martynyuu/realityscan</Registry>
-  <Branch>
-    <Tag>latest</Tag>
-    <TagDescription>Latest stable release</TagDescription>
-  </Branch>
   <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/Martynyuu/unraid-realityscan/issues</Support>
   <Project>https://github.com/Martynyuu/unraid-realityscan</Project>
-  <Overview>
-RealityScan 3D Photogrammetry Processing for Unraid.
-
-Process your 3D scans from the RealityScan mobile app with full GPU acceleration.
-
-REQUIREMENTS:
-- NVIDIA GPU with CUDA support
-- NVIDIA Driver plugin installed
-- Vulkan Support plugin installed
-- RealityScan Linux installer (.deb) from Epic Games
-
-FIRST RUN:
-Mount your RealityScan .deb installer and the container will install it automatically.
-  </Overview>
-  <Category>Productivity: MediaApp:Photos</Category>
-  <WebUI></WebUI>
+  <Overview>RealityScan render node for LumaLod Studio: RSNode.exe from RealityScan for Linux (Epic's Wine build) with NVIDIA GPU (CUDA + Vulkan), so Studio uses the same RSNode API as on a Windows node.[br][br]
+RealityScan is NOT part of the image. Download the RealityScan for Linux .deb (Epic login, realityscan.com/en-US/linux) and put it into the Installer folder; the container unpacks it into the RealityScan install folder on first start and again only when the .deb changes.[br][br]
+FIRST START: Mode = login and set a VNC password. Open http://UNRAID-IP:6080/vnc.html, sign in to Epic in RealityScan, close it. Then Mode = rsnode and clear the VNC password. The sign-in is kept in the AppData folder.[br][br]
+SECURITY: trusted LAN only. RSNode speaks plain HTTP, accepts any client that has its bearer, and the bearer does not change across restarts.[br][br]
+Requires the NVIDIA Driver plugin (nvidia runtime) and the Vulkan Support plugin (Martynyuu/unraid-vulkan).</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:30010]/node/status</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Martynyuu/unraid-realityscan/main/unraid-template.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/Martynyuu/unraid-realityscan/main/icon.png</Icon>
+  <ExtraParams>--runtime=nvidia --shm-size=2g</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
   <DonateText>Support Development</DonateText>
   <DonateLink>https://ko-fi.com/strudel9</DonateLink>
-  <DonateImg>https://img.shields.io/badge/Ko--fi-Support-ff5e5b</DonateImg>
-  <ExtraParams>--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all --device /dev/dri</ExtraParams>
-  <DateInstalled></DateInstalled>
-  <Description>RealityScan 3D Photogrammetry Processing with GPU acceleration. Process scans from the RealityScan mobile app.</Description>
+  <Requires>NVIDIA Driver plugin (provides the nvidia Docker runtime) and Vulkan Support plugin (Martynyuu/unraid-vulkan). The RealityScan for Linux .deb from Epic (not included).</Requires>
+  <Description>RealityScan render node (RSNode under Wine) for LumaLod Studio, NVIDIA GPU. RealityScan itself is not included - supply the .deb from Epic.</Description>
   <Changes>
+### 2026.10.27
+- Now the LumaLod Studio render node: RSNode.exe under RealityScan's bundled Wine on port 30010 (MODE=rsnode).
+- MODE variable (rsnode, login, remote, inventory, bash) replaces the invalid "Command" setting and the invented server/grpc modes.
+- RealityScan is unpacked into a persistent folder, only again when the .deb changes; Epic sign-in kept in AppData.
+- VNC/noVNC only with a VNC password, configured at runtime (no default password).
+- GPU via --runtime=nvidia + NVIDIA_VISIBLE_DEVICES/NVIDIA_DRIVER_CAPABILITIES; single NVIDIA .so mounts removed.
+- Healthcheck against /node/status.
+
 ### 2026.03.18
 - Added NVIDIA library mounts for proper GPU/Vulkan support
 - Added /dev/dri device access
@@ -43,17 +42,23 @@ Mount your RealityScan .deb installer and the container will install it automati
 
 ### 2026.03.02
 - Initial release
-- Full NVIDIA GPU support
-- Vulkan integration
-- Automatic installer detection
   </Changes>
-  <Config Name="Scans Directory" Target="/data/scans" Default="/mnt/user/scans" Mode="rw" Description="Directory for processed 3D scans" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/scans</Config>
-  <Config Name="RealityScan Installer" Target="/tmp/realityscan.deb" Default="" Mode="ro" Description="Path to RealityScan .deb installer (first run only)" Type="Path" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Config Directory" Target="/home/realityscan/.config" Default="/mnt/user/appdata/realityscan" Mode="rw" Description="Application configuration" Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/realityscan</Config>
-  <Config Name="Vulkan ICD (etc)" Target="/etc/vulkan/icd.d" Default="/etc/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host (etc)" Type="Path" Display="advanced" Required="true" Mask="false">/etc/vulkan/icd.d</Config>
-  <Config Name="Vulkan ICD (share)" Target="/usr/share/vulkan/icd.d" Default="/usr/share/vulkan/icd.d" Mode="ro" Description="Vulkan ICD configuration from host (usr/share)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/share/vulkan/icd.d</Config>
-  <Config Name="NVIDIA GLX Library" Target="/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" Default="/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" Mode="ro" Description="NVIDIA GLX library (required for GPU)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0</Config>
-  <Config Name="NVIDIA EGL Library" Target="/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0" Default="/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0" Mode="ro" Description="NVIDIA EGL library (required for GPU)" Type="Path" Display="advanced" Required="true" Mask="false">/usr/lib/x86_64-linux-gnu/libEGL_nvidia.so.0</Config>
-  <Config Name="DISPLAY" Target="DISPLAY" Default=":99" Mode="" Description="X11 display (internal Xvfb on :99)" Type="Variable" Display="advanced" Required="false" Mask="false">:99</Config>
-  <Config Name="Command" Target="" Default="server" Mode="" Description="Run mode: server, grpc, both, bash" Type="Variable" Display="advanced" Required="false" Mask="false">server</Config>
+  <Config Name="Mode" Target="MODE" Default="rsnode|login|inventory|remote|bash" Mode="" Description="rsnode = render node for Studio. login = RealityScan GUI for the one-off Epic sign-in (needs a VNC password). inventory = diagnostics in the log, then stops. remote = Epic's Remote Command Plugin REST (port 1234). bash = idle, for the console." Type="Variable" Display="always" Required="true" Mask="false">rsnode</Config>
+  <Config Name="RSNode port" Target="30010" Default="30010" Mode="tcp" Description="RSNode API. Studio: reality_scan.bind_host = Unraid IP, bind_port = this port, auto_launch = false. The WebUI link answers 401 'Missing authentication token' when RSNode is up - that is expected (the API needs the bearer)." Type="Port" Display="always" Required="true" Mask="false">30010</Config>
+  <Config Name="noVNC port" Target="6080" Default="6080" Mode="tcp" Description="Browser desktop for MODE=login: http://UNRAID-IP:6080/vnc.html. Only active when a VNC password is set." Type="Port" Display="always" Required="false" Mask="false">6080</Config>
+  <Config Name="VNC password" Target="VNC_PASSWORD" Default="" Mode="" Description="Turns on VNC/noVNC (required for MODE=login). Leave empty in normal operation. VNC uses only the first 8 characters." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Installer folder (.deb)" Target="/installer" Default="/mnt/user/appdata/lumalod-rsnode/installer" Mode="ro" Description="Put the RealityScan for Linux .deb here (newest one is used). Replace it to update RealityScan." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lumalod-rsnode/installer</Config>
+  <Config Name="AppData (home, Wine prefix, Epic sign-in)" Target="/config" Default="/mnt/user/appdata/lumalod-rsnode/config" Mode="rw" Description="HOME of the container. RealityScan keeps its Wine prefix (~/.realityscan) and the Epic sign-in here." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lumalod-rsnode/config</Config>
+  <Config Name="RealityScan install" Target="/opt/realityscan" Default="/mnt/user/appdata/lumalod-rsnode/realityscan" Mode="rw" Description="Unpacked RealityScan (several GB). Must be empty or a previous install - the container refuses to overwrite anything else." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lumalod-rsnode/realityscan</Config>
+  <Config Name="Data (RSNode sessions)" Target="/data" Default="/mnt/user/appdata/lumalod-rsnode/data" Mode="rw" Description="RSNode session sandboxes (uploads, outputs) in /data/sessions. Use a cache/SSD pool. Studio removes sessions with /project/delete; /project/close alone leaves them on disk." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lumalod-rsnode/data</Config>
+  <Config Name="GPU" Target="NVIDIA_VISIBLE_DEVICES" Default="all" Mode="" Description="all, or the GPU UUID from nvidia-smi -L" Type="Variable" Display="always" Required="true" Mask="false">all</Config>
+  <Config Name="NVIDIA capabilities" Target="NVIDIA_DRIVER_CAPABILITIES" Default="all" Mode="" Description="all (compute for CUDA, graphics for Vulkan, display/utility)" Type="Variable" Display="advanced" Required="true" Mask="false">all</Config>
+  <Config Name="Vulkan ICD (host)" Target="/host/vulkan/icd.d" Default="/etc/vulkan/icd.d" Mode="ro" Description="Host Vulkan ICD manifests from the Vulkan Support plugin. Used when the NVIDIA runtime does not inject a manifest itself." Type="Path" Display="advanced" Required="false" Mask="false">/etc/vulkan/icd.d</Config>
+  <Config Name="RSNode extra args" Target="RSNODE_ARGS" Default="" Mode="" Description="Space-separated, no quotes. -allowedHosts tower.lan;tower is needed when Studio connects by host name instead of IP (RSNode rejects unknown Host headers with 403). It is not access control." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="RSNode port (container)" Target="RSNODE_PORT" Default="30010" Mode="" Description="Only change together with the container side of 'RSNode port'." Type="Variable" Display="advanced" Required="false" Mask="false">30010</Config>
+  <Config Name="Loopback relay port" Target="RSNODE_RELAY_PORT" Default="" Mode="" Description="Empty = off. Set to 30011 only if Studio cannot read the bearer over the LAN (see README). Hands the bearer to anyone who can reach that port." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Relay port" Target="30011" Default="30011" Mode="tcp" Description="Host port for the loopback relay (only used when 'Loopback relay port' = 30011)." Type="Port" Display="advanced" Required="false" Mask="false">30011</Config>
+  <Config Name="VNC port" Target="5900" Default="5900" Mode="tcp" Description="Raw VNC for a VNC client (only with a VNC password)." Type="Port" Display="advanced" Required="false" Mask="false">5900</Config>
+  <Config Name="Remote Command port" Target="1234" Default="1234" Mode="tcp" Description="Only MODE=remote (Epic's Remote Command Plugin REST)." Type="Port" Display="advanced" Required="false" Mask="false">1234</Config>
+  <Config Name="DRI device" Target="/dev/dri" Default="" Mode="" Description="Optional (Epic's sample passes /dev/dri). Leave empty unless /dev/dri exists on the host." Type="Device" Display="advanced" Required="false" Mask="false"></Config>
 </Container>
